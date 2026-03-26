@@ -9,10 +9,8 @@ from dotenv import load_dotenv
 import uuid
 from yookassa import Configuration, Payment
 
-# ЮKassa ТЕСТОВЫЙ РЕЖИМ
-Configuration.account_id = "test_ТВОЙ_SHOP_ID_ИЗ_КАБИНЕТА"
-Configuration.secret_key = "test_ТВОЙ_SECRET_KEY_ИЗ_КАБИНЕТА"
-print("✅ ЮKassa тест подключён")
+# ЮKassa ОТКЛЮЧЕНА (нет ключей)
+print("⚠️ ЮKassa отключена")
 
 import aiosqlite
 from aiogram import Bot, Dispatcher, html, F
@@ -59,7 +57,7 @@ class LessonState(StatesGroup):
     waiting_topic = State()
 
 async def add_to_database(telegram_id, username):
-    async with aiosqlite.connect('telegram.db') as db:
+    async with aiosqlite.connect('../telegram.db') as db:
         await db.execute("CREATE TABLE IF NOT EXISTS users (telegram_id BIGINT, username TEXT, date TEXT)")
         cursor = await db.execute('SELECT * from users where telegram_id = ?', (telegram_id,))
         data = await cursor.fetchone()
@@ -69,7 +67,7 @@ async def add_to_database(telegram_id, username):
             await db.commit()
 
 async def init_repetitor_db():
-    async with aiosqlite.connect('telegram.db') as db:
+    async with aiosqlite.connect('../telegram.db') as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS repetitor_users (
                 telegram_id BIGINT PRIMARY KEY, daily_requests INTEGER DEFAULT 5,
@@ -79,7 +77,7 @@ async def init_repetitor_db():
         await db.commit()
 
 async def get_repetitor_user(telegram_id):
-    async with aiosqlite.connect('telegram.db') as db:
+    async with aiosqlite.connect('../telegram.db') as db:
         cursor = await db.execute('SELECT * FROM repetitor_users WHERE telegram_id = ?', (telegram_id,))
         data = await cursor.fetchone()
         if data is None:
@@ -89,7 +87,7 @@ async def get_repetitor_user(telegram_id):
         return data
 
 async def update_requests(telegram_id):
-    async with aiosqlite.connect('telegram.db') as db:
+    async with aiosqlite.connect('../telegram.db') as db:
         await db.execute("UPDATE repetitor_users SET daily_requests = daily_requests - 1 WHERE telegram_id = ?", (telegram_id,))
         await db.commit()
 
@@ -145,32 +143,30 @@ async def process_lesson(message: Message, state: FSMContext):
     await state.clear()
     await message.answer("Готов к новому? /repetitor")
 
+@dp.callback_query(F.data == "close")
+async def close_handler(callback: CallbackQuery):
+    await callback.message.delete()
+    await callback.answer()
 
 @dp.callback_query(F.data == "premium")
 async def premium_handler(callback: CallbackQuery):
-    payment = Payment.create({
-        "amount": {"value": "299.00", "currency": "RUB"},
-        "confirmation": {
-            "type": "redirect",
-            "return_url": "https://t.me/RepetPython_bot"
-        },
-        "capture": True,
-        "description": "Премиум Python-репетитор (1 месяц)"
-    }, uuid.uuid4())
-
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💳 Оплатить 299₽", url=payment.confirmation.confirmation_url)],
-        [InlineKeyboardButton(text="❌ Отмена", callback_data="cancel")]
+        [InlineKeyboardButton(text="💳 Оплатить 299₽ (скоро)", callback_data="premium_coming")],
+        [InlineKeyboardButton(text="❌ Закрыть", callback_data="close")]
     ])
     await callback.message.answer(
-        "⭐ **ПРЕМИУМ 299₽/МЕСЯЦ**:\n"
+        "⭐ **ПРЕМИУМ 299₽/МЕСЯЦ** (ЮKassa подключается):\n\n"
         "• Неограниченные уроки\n"
         "• Статистика прогресса\n"
-        "• Приоритетные ответы\n\n"
-        "💳 Тестовая карта: 4111111111111111 | 12/25 | 000",
+        "• Приоритет GigaChat\n\n"
+        "⏳ Скоро заработает!",
         reply_markup=kb, parse_mode="Markdown"
     )
     await callback.answer()
+
+@dp.callback_query(F.data == "premium_coming")
+async def premium_coming(callback: CallbackQuery):
+    await callback.answer("Скоро! 💰", show_alert=True)
 
 @dp.message()
 async def echo_handler(message: Message) -> None:
@@ -202,3 +198,6 @@ async def progress(message: Message):
     user = await get_repetitor_user(message.from_user.id)
     await message.answer(f"📊 **Твой прогресс**:\nУроки: {user[3]}\nОсталось бесплатно: {user[1]}\nПремиум до: {user[2] or 'Нет'}")
 
+@dp.callback_query(F.data == "quiz")
+async def quiz_start(callback: CallbackQuery):
+    await callback.answer("Квиз скоро! 🎯", show_alert=True)

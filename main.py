@@ -2,18 +2,13 @@ import asyncio
 import datetime
 import logging
 import sys
-from os import getenv
 import os
 from dotenv import load_dotenv
 
-import uuid
-from yookassa import Configuration, Payment
-
-# ЮKassa ОТКЛЮЧЕНА (нет ключей)
 print("⚠️ ЮKassa отключена")
 
 import aiosqlite
-from aiogram import Bot, Dispatcher, html, F
+from aiogram import Bot, Dispatcher, F, html
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.filters import CommandStart, Command
@@ -21,27 +16,25 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
-from bot_token import BOT_TOKEN  # твой файл с токеном
-
-# Глобальный dp!
-dp = Dispatcher(storage=MemoryStorage())
 
 load_dotenv()
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Render env!
+
+dp = Dispatcher(storage=MemoryStorage())
 
 try:
     from gigachat import GigaChat
     from gigachat.models import Chat, Messages, MessagesRole
-
     gc = GigaChat(
-        credentials=getenv("GIGACHAT_TOKEN"),  # имя переменной, а не сам токен!
+        credentials=os.getenv("GIGACHAT_TOKEN"),
         scope="GIGACHAT_API_PERS",
         verify_ssl_certs=False
     )
     GIGACHAT_AVAILABLE = True
     print("✅ GigaChat подключён")
-except Exception as e:
+except:
     GIGACHAT_AVAILABLE = False
-    print(f"❌ GigaChat ошибка: {e}")
+    print("❌ GigaChat недоступен")
 
 
 SYSTEM_PROMPT = """
@@ -115,7 +108,7 @@ async def command_start_handler(message: Message) -> None:
     await add_to_database(telegram_id, username)
 
 @dp.message(Command("repetitor"))
-async def repetitor_start(message: Message, state: FSMContext):
+async def repetitor_start(message: Message):
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📚 Урок Python", callback_data="python_lesson")],
         [InlineKeyboardButton(text="⭐ Премиум", callback_data="premium")]
@@ -183,15 +176,6 @@ async def main() -> None:
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(main())
-
-@dp.callback_query(F.data == "quiz")
-async def quiz_start(callback: CallbackQuery):
-    questions = [
-        "Что выводит print('Hi')?",
-        "x = 5; print(x)?",
-        "len('Python')?"
-    ]
-    await callback.message.answer("🧠 **КВИЗ Python** (3 вопроса)\n\n1. " + questions[0])
 
 @dp.message(Command("progress"))
 async def progress(message: Message):

@@ -57,7 +57,7 @@ class LessonState(StatesGroup):
     waiting_topic = State()
 
 async def add_to_database(telegram_id, username):
-    async with aiosqlite.connect('../telegram.db') as db:
+    async with aiosqlite.connect('telegram.db') as db:
         await db.execute("CREATE TABLE IF NOT EXISTS users (telegram_id BIGINT, username TEXT, date TEXT)")
         cursor = await db.execute('SELECT * from users where telegram_id = ?', (telegram_id,))
         data = await cursor.fetchone()
@@ -67,7 +67,7 @@ async def add_to_database(telegram_id, username):
             await db.commit()
 
 async def init_repetitor_db():
-    async with aiosqlite.connect('../telegram.db') as db:
+    async with aiosqlite.connect('telegram.db') as db:
         await db.execute("""
             CREATE TABLE IF NOT EXISTS repetitor_users (
                 telegram_id BIGINT PRIMARY KEY, daily_requests INTEGER DEFAULT 5,
@@ -77,7 +77,7 @@ async def init_repetitor_db():
         await db.commit()
 
 async def get_repetitor_user(telegram_id):
-    async with aiosqlite.connect('../telegram.db') as db:
+    async with aiosqlite.connect('telegram.db') as db:
         cursor = await db.execute('SELECT * FROM repetitor_users WHERE telegram_id = ?', (telegram_id,))
         data = await cursor.fetchone()
         if data is None:
@@ -87,7 +87,7 @@ async def get_repetitor_user(telegram_id):
         return data
 
 async def update_requests(telegram_id):
-    async with aiosqlite.connect('../telegram.db') as db:
+    async with aiosqlite.connect('telegram.db') as db:
         await db.execute("UPDATE repetitor_users SET daily_requests = daily_requests - 1 WHERE telegram_id = ?", (telegram_id,))
         await db.commit()
 
